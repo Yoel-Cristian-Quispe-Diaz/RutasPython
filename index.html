@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Rutas de Transporte</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+
+        .main-content {
+            flex: 1;
+            position: relative;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.5rem;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        select,
+        input,
+        button {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        select:focus,
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .route-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            background: white;
+        }
+
+        .route-item {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .route-item:hover {
+            background: #f8f9ff;
+            transform: translateX(5px);
+        }
+
+        .route-item.active {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .route-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .route-info {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .route-item.active .route-info {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.loading {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .route-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-bus {
+            background: #007bff;
+            color: white;
+        }
+
+        .badge-trufi {
+            background: #28a745;
+            color: white;
+        }
+
+        .badge-micro {
+            background: #ffc107;
+            color: black;
+        }
+
+        .stats {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        .direction-arrow {
+            z-index: 1000 !important;
+        }
+
+        .direction-arrow div {
+            transition: all 0.3s ease;
+        }
+
+        .direction-arrow:hover div {
+            transform: scale(1.2) !important;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: 40vh;
+            }
+
+            .main-content {
+                height: 60vh;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>🚌 Rutas de Transporte</h1>
+
+            <div class="stats" id="stats">
+                <div class="stat-item">
+                    <span>Total de rutas:</span>
+                    <span id="totalRoutes">-</span>
+                </div>
+                <div class="stat-item">
+                    <span>Rutas activas:</span>
+                    <span id="activeRoutes">-</span>
+                </div>
+                <div class="stat-item">
+                    <span>Flechas de dirección:</span>
+                    <span id="arrowsStatus" style="color: #17a2b8; font-weight: bold;">🟢 Activas</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label for="routeType">Filtrar por tipo:</label>
+                    <select id="routeType">
+                        <option value="">Todos los tipos</option>
+                        <option value="bus">Bus</option>
+                        <option value="trufi">Trufi</option>
+                        <option value="micro">Micro</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="searchInput">Buscar ruta:</label>
+                    <input type="text" id="searchInput" placeholder="Escribe para buscar...">
+                </div>
+
+                <button onclick="loadRoutes()">
+                    <span id="loadingSpinner" class="loading-spinner" style="display: none;"></span>
+                    Actualizar Rutas
+                </button>
+
+                <button onclick="clearMap()">Limpiar Mapa</button>
+
+                <button onclick="window.location.href='mapa_editor.html'"
+                    style="background: linear-gradient(45deg, #28a745, #20c997);">
+                    🗺️ Editor de Rutas
+                </button>
+
+                <button onclick="toggleDirectionArrows()" id="toggleArrowsBtn"
+                    style="background: linear-gradient(45deg, #17a2b8, #138496);">
+                    🧭 Ocultar Flechas
+                </button>
+            </div>
+
+            <div id="status"></div>
+
+            <div class="route-list" id="routeList">
+                <!-- Las rutas se cargarán aquí -->
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // Configuración
+        const API_BASE_URL = 'http://localhost:5000/api';
+
+        // Variables globales
+        let map;
+        let routes = [];
+        let currentLayer = null;
+        let directionArrows = []; // Array para almacenar las flechas de dirección
+        let showArrows = true; // Controlar visibilidad de las flechas
+        let routeColors = {
+            'bus': '#007bff',
+            'trufi': '#28a745',
+            'micro': '#ffc107'
+        };
+
+        // Inicializar mapa
+        function initMap() {
+            // Centrado en Santa Cruz, Bolivia
+            map = L.map('map').setView([-21.9987, -63.6789], 12);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        // Mostrar status
+        function showStatus(message, type = 'loading') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+
+            if (type !== 'error') {
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                }, 3000);
+            }
+        }
+
+        // Cargar rutas desde la API
+        async function loadRoutes() {
+            try {
+                const spinner = document.getElementById('loadingSpinner');
+                spinner.style.display = 'inline-block';
+                showStatus('Cargando rutas...', 'loading');
+
+                const routeType = document.getElementById('routeType').value;
+                const searchTerm = document.getElementById('searchInput').value;
+
+                let url = `${API_BASE_URL}/routes`;
+
+                if (routeType) {
+                    url = `${API_BASE_URL}/routes/type/${routeType}`;
+                } else if (searchTerm) {
+                    url = `${API_BASE_URL}/routes/search?q=${encodeURIComponent(searchTerm)}`;
+                }
+
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                routes = data.data || [];
+
+                displayRoutes();
+                updateStats();
+                showStatus(`${routes.length} rutas cargadas correctamente`, 'success');
+
+            } catch (error) {
+                console.error('Error loading routes:', error);
+                showStatus(`Error cargando rutas: ${error.message}`, 'error');
+            } finally {
+                document.getElementById('loadingSpinner').style.display = 'none';
+            }
+        }
+
+        // Mostrar rutas en la lista
+        function displayRoutes() {
+            const routeList = document.getElementById('routeList');
+            routeList.innerHTML = '';
+
+            if (routes.length === 0) {
+                routeList.innerHTML = '<div class="route-item">No se encontraron rutas</div>';
+                return;
+            }
+
+            routes.forEach((route, index) => {
+                const routeItem = document.createElement('div');
+                routeItem.className = 'route-item';
+                routeItem.onclick = () => selectRoute(route, index);
+
+                const badgeClass = `badge-${route.route_type}`;
+                const coordinatesCount = route.coordinates ? route.coordinates.length : 0;
+
+                routeItem.innerHTML = `
+                    <div class="route-name">
+                        ${route.name}
+                        <span class="route-badge ${badgeClass}">${route.route_type}</span>
+                    </div>
+                    <div class="route-info">
+                        ${route.description || 'Sin descripción'} • ${coordinatesCount} puntos
+                    </div>
+                `;
+
+                routeList.appendChild(routeItem);
+            });
+        }
+
+        // Función para agregar flechas de dirección
+        function addDirectionArrows(coordinates, routeName, routeType) {
+            // Limpiar flechas existentes
+            directionArrows.forEach(arrow => map.removeLayer(arrow));
+            directionArrows = [];
+
+            if (coordinates.length < 2 || !showArrows) return;
+
+            // Agregar flechas cada 2-3 puntos para mejor visualización
+            const arrowInterval = Math.max(1, Math.floor(coordinates.length / 4));
+
+            for (let i = 0; i < coordinates.length - 1; i += arrowInterval) {
+                const currentCoord = coordinates[i];
+                const nextCoord = coordinates[i + 1];
+
+                // Calcular ángulo correcto para la dirección del recorrido
+                // La flecha debe apuntar desde el punto actual hacia el siguiente
+                const deltaLng = nextCoord.lng - currentCoord.lng;
+                const deltaLat = nextCoord.lat - currentCoord.lat;
+                const angle = Math.atan2(deltaLng, deltaLat) * 180 / Math.PI;
+
+                // Crear icono de flecha con símbolo más claro
+                const arrowIcon = L.divIcon({
+                    html: `
+                        <div style="
+                            transform: rotate(${angle}deg);
+                            color: #e74c3c;
+                            font-size: 20px;
+                            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+                            background: white;
+                            border-radius: 50%;
+                            width: 32px;
+                            height: 32px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            border: 3px solid #e74c3c;
+                            font-weight: bold;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                        ">
+                            ➜
+                        </div>
+                    `,
+                    className: 'direction-arrow',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                // Posición en el punto actual (no en el medio)
+                const arrowLat = currentCoord.lat;
+                const arrowLng = currentCoord.lng;
+
+                const arrow = L.marker([arrowLat, arrowLng], { icon: arrowIcon })
+                    .addTo(map)
+                    .bindPopup(`
+                        <b>Dirección de la ruta</b><br>
+                        <strong>${routeName}</strong><br>
+                        Punto ${i + 1} → Punto ${i + 2}<br>
+                        Tipo: ${routeType}<br>
+                        <small>Flecha indica el sentido del recorrido</small>
+                    `);
+
+                directionArrows.push(arrow);
+            }
+        }
+
+        // Seleccionar y mostrar ruta en el mapa
+        function selectRoute(route, index) {
+            // Remover selección anterior
+            document.querySelectorAll('.route-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // Marcar como activo
+            document.querySelectorAll('.route-item')[index].classList.add('active');
+
+            // Limpiar capa anterior y flechas
+            if (currentLayer) {
+                map.removeLayer(currentLayer);
+            }
+
+            // Limpiar flechas existentes
+            directionArrows.forEach(arrow => map.removeLayer(arrow));
+            directionArrows = [];
+
+            // Verificar si hay coordenadas
+            if (!route.coordinates || route.coordinates.length === 0) {
+                showStatus('Esta ruta no tiene coordenadas definidas', 'error');
+                return;
+            }
+
+            // Crear nueva capa
+            const color = routeColors[route.route_type] || '#333333';
+            const latLngs = route.coordinates.map(coord => [coord.lat, coord.lng]);
+
+            currentLayer = L.polyline(latLngs, {
+                color: color,
+                weight: 4,
+                opacity: 0.8
+            }).addTo(map);
+
+            // Agregar flechas de dirección
+            addDirectionArrows(route.coordinates, route.name, route.route_type);
+
+            // Agregar marcadores de inicio y fin
+            if (latLngs.length > 0) {
+                // Marcador de inicio
+                L.marker(latLngs[0], {
+                    title: 'Inicio'
+                }).addTo(map).bindPopup(`
+                    <b>${route.name}</b><br>
+                    <strong>Inicio del recorrido</strong><br>
+                    Tipo: ${route.route_type}<br>
+                    Total puntos: ${latLngs.length}
+                `);
+
+                // Marcador de fin
+                if (latLngs.length > 1) {
+                    L.marker(latLngs[latLngs.length - 1], {
+                        title: 'Fin'
+                    }).addTo(map).bindPopup(`
+                        <b>${route.name}</b><br>
+                        <strong>Final del recorrido</strong><br>
+                        Tipo: ${route.route_type}<br>
+                        Total puntos: ${latLngs.length}
+                    `);
+                }
+
+                // Ajustar vista del mapa
+                map.fitBounds(currentLayer.getBounds(), { padding: [20, 20] });
+            }
+
+            showStatus(`Ruta "${route.name}" mostrada en el mapa`, 'success');
+        }
+
+        // Limpiar mapa
+        function clearMap() {
+            if (currentLayer) {
+                map.removeLayer(currentLayer);
+                currentLayer = null;
+            }
+
+            // Limpiar flechas de dirección
+            directionArrows.forEach(arrow => map.removeLayer(arrow));
+            directionArrows = [];
+
+            // Remover todos los marcadores
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            // Remover selección
+            document.querySelectorAll('.route-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            showStatus('Mapa limpiado', 'success');
+        }
+
+        // Actualizar estadísticas
+        function updateStats() {
+            const totalRoutes = routes.length;
+            const activeRoutes = routes.filter(r => r.is_active).length;
+
+            document.getElementById('totalRoutes').textContent = totalRoutes;
+            document.getElementById('activeRoutes').textContent = activeRoutes;
+        }
+
+        // Event listeners
+        document.getElementById('routeType').addEventListener('change', loadRoutes);
+        document.getElementById('searchInput').addEventListener('input', debounce(loadRoutes, 500));
+
+        // Función debounce para evitar muchas llamadas
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Verificar conexión con la API
+        async function checkApiConnection() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                if (response.ok) {
+                    showStatus('Conectado a la API correctamente', 'success');
+                    return true;
+                }
+            } catch (error) {
+                showStatus('No se pudo conectar a la API. Verifica que esté ejecutándose en http://localhost:5000', 'error');
+                return false;
+            }
+        }
+
+        // Inicialización
+        window.onload = async function () {
+            initMap();
+
+            // Verificar conexión API
+            const apiConnected = await checkApiConnection();
+
+            if (apiConnected) {
+                // Cargar rutas iniciales
+                await loadRoutes();
+            } else {
+                // Mostrar datos de ejemplo si no hay conexión
+                showExampleData();
+            }
+        };
+
+        // Mostrar datos de ejemplo si no hay conexión con la API
+        function showExampleData() {
+            const exampleRoutes = [
+                {
+                    id: 1,
+                    name: "ruta_1_ida",
+                    description: "Ruta 1 dirección ida",
+                    route_type: "bus",
+                    is_active: true,
+                    coordinates: [
+                        { lat: -21.993376, lng: -63.683664, order: 1 },
+                        { lat: -21.992982, lng: -63.686455, order: 2 },
+                        { lat: -21.994234, lng: -63.686592, order: 3 }
+                    ]
+                },
+                {
+                    id: 2,
+                    name: "trufi_A",
+                    description: "Línea de trufi A",
+                    route_type: "trufi",
+                    is_active: true,
+                    coordinates: []
+                }
+            ];
+
+            routes = exampleRoutes;
+            displayRoutes();
+            updateStats();
+            showStatus('Mostrando datos de ejemplo (API desconectada)', 'error');
+        }
+
+        // Función para alternar la visibilidad de las flechas
+        function toggleDirectionArrows() {
+            showArrows = !showArrows;
+            const btn = document.getElementById('toggleArrowsBtn');
+            const statusSpan = document.getElementById('arrowsStatus');
+
+            if (showArrows) {
+                btn.innerHTML = '🧭 Ocultar Flechas';
+                btn.style.background = 'linear-gradient(45deg, #17a2b8, #138496)';
+                statusSpan.innerHTML = '🟢 Activas';
+                statusSpan.style.color = '#17a2b8';
+                showStatus('Flechas de dirección activadas', 'success');
+            } else {
+                btn.innerHTML = '🧭 Mostrar Flechas';
+                btn.style.background = 'linear-gradient(45deg, #ffc107, #e0a800)';
+                statusSpan.innerHTML = '🔴 Inactivas';
+                statusSpan.style.color = '#dc3545';
+                showStatus('Flechas de dirección ocultadas', 'success');
+            }
+
+            // Actualizar flechas si hay una ruta activa
+            if (currentLayer) {
+                // Encontrar la ruta activa
+                const activeRoute = routes.find((_, index) =>
+                    document.querySelectorAll('.route-item')[index]?.classList.contains('active')
+                );
+
+                if (activeRoute && activeRoute.coordinates) {
+                    addDirectionArrows(activeRoute.coordinates, activeRoute.name, activeRoute.route_type);
+                }
+            }
+        }
+
+        // Exportar funciones para uso desde la consola
+        window.transportApi = {
+            loadRoutes,
+            clearMap,
+            selectRoute,
+            checkApiConnection,
+            routes: () => routes
+        };
+    </script>
+</body>
+
+</html>

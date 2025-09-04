@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Editor de Rutas - Crear Nuevas Rutas</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+  }
+
+  .container {
+    display: flex;
+    height: 100vh;
+  }
+
+  .sidebar {
+    width: 400px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 20px;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    overflow-y: auto;
+  }
+
+  .main-content {
+    flex: 1;
+    position: relative;
+  }
+
+  h1 {
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 1.5rem;
+  }
+
+  .controls {
+    margin-bottom: 20px;
+  }
+
+  .control-group {
+    margin-bottom: 15px;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #555;
+  }
+
+  select, input, button, textarea {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #e1e1e1;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+  }
+
+  select:focus, input:focus, textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+
+  button {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  }
+
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-success {
+    background: linear-gradient(45deg, #28a745, #20c997);
+  }
+
+  .btn-danger {
+    background: linear-gradient(45deg, #dc3545, #c82333);
+  }
+
+  .btn-warning {
+    background: linear-gradient(45deg, #ffc107, #e0a800);
+    color: #212529;
+  }
+
+  .btn-info {
+    background: linear-gradient(45deg, #17a2b8, #138496);
+  }
+
+  .coordinates-display {
+    background: #f8f9fa;
+    border: 2px solid #e1e1e1;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .coordinate-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid #dee2e6;
+  }
+
+  .coordinate-item:last-child {
+    border-bottom: none;
+  }
+
+  .coordinate-text {
+    font-family: monospace;
+    font-size: 12px;
+    color: #495057;
+  }
+
+  .status {
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .status.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+  }
+
+  .status.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
+
+  .status.loading {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+  }
+
+  .stats {
+    background: rgba(255,255,255,0.9);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+
+  .stat-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .back-button {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    padding: 10px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  }
+
+  .back-button:hover {
+    background: white;
+    transform: translateY(-2px);
+  }
+
+  #map {
+    height: 100%;
+    width: 100%;
+    z-index: 1;
+    position: relative;
+  }
+
+  .direction-arrow {
+    z-index: 1000 !important;
+  }
+
+  .direction-arrow div {
+    transition: all 0.3s ease;
+  }
+
+  .direction-arrow:hover div {
+    transform: scale(1.2) !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  }
+
+  .loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  @media (max-width: 768px) {
+    .container {
+      flex-direction: column;
+    }
+
+    .sidebar {
+      width: 100%;
+      height: 40vh;
+    }
+
+    .main-content {
+      height: 60vh;
+    }
+  }
+</style>
+</head>
+<body>
+    <button class="back-button" onclick="window.location.href='index.html'">
+        ← Volver al Mapa
+    </button>
+
+    <div class="container">
+        <div class="sidebar">
+            <h1>🗺️ Editor de Rutas</h1>
+
+            <div class="stats">
+                <div class="stat-item">
+                    <span>Puntos marcados:</span>
+                    <span id="totalPoints">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>Distancia total:</span>
+                    <span id="totalDistance">0 km</span>
+                </div>
+                <div class="stat-item">
+                    <span>Flechas de dirección:</span>
+                    <span id="arrowsStatus" style="color: #28a745; font-weight: bold;">🟢 Activas</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label for="routeName">Nombre de la ruta:</label>
+                    <input type="text" id="routeName" placeholder="Ej: ruta_nueva_ida">
+                </div>
+
+                <div class="control-group">
+                    <label for="routeDescription">Descripción:</label>
+                    <textarea id="routeDescription" rows="2" placeholder="Descripción de la ruta"></textarea>
+                </div>
+
+                <div class="control-group">
+                    <label for="routeType">Tipo de ruta:</label>
+                    <select id="routeType">
+                        <option value="bus">Bus</option>
+                        <option value="trufi">Trufi</option>
+                        <option value="micro">Micro</option>
+                    </select>
+                </div>
+
+                <button class="btn-info" onclick="copyCoordinates()">
+                    📋 Copiar Coordenadas
+                </button>
+
+                <button class="btn-success" onclick="createRoute()">
+                    💾 Crear Nueva Ruta
+                </button>
+
+                <button class="btn-warning" onclick="exportCoordinates()">
+                    📥 Exportar JSON
+                </button>
+
+                <button class="btn-danger" onclick="clearRoute()">
+                    🗑️ Limpiar Ruta
+                </button>
+
+                <button class="btn-warning" onclick="toggleDirectionArrows()" id="toggleArrowsBtn">
+                    🧭 Ocultar Flechas
+                </button>
+            </div>
+
+            <div id="status"></div>
+
+            <div class="coordinates-display" id="coordinatesDisplay">
+                <div style="text-align: center; color: #6c757d;">
+                    Haz clic en el mapa para marcar puntos
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+<div id="map"></div>
+        </div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+        // Configuración
+        const API_BASE_URL = 'http://localhost:5000/api';
+
+        // Variables globales
+        let map;
+        let coords = [];
+        let markers = [];
+        let polyline = null;
+        let directionArrows = []; // Array para almacenar las flechas de dirección
+        let showArrows = true; // Controlar visibilidad de las flechas
+
+        // Inicializar mapa
+        function initMap() {
+            console.log('Inicializando mapa...');
+
+            // Centrado en Santa Cruz, Bolivia
+            map = L.map('map').setView([-21.9987, -63.6789], 12);
+            console.log('Mapa creado:', map);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+            // Inicializar polyline
+            polyline = L.polyline([], {color: 'red', weight: 4}).addTo(map);
+
+            // Configurar eventos del mapa después de inicializarlo
+            setupMapEvents();
+
+            console.log('Mapa inicializado correctamente');
+        }
+
+        // Mostrar status
+        function showStatus(message, type = 'loading') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+
+            if (type !== 'error') {
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                }, 3000);
+            }
+        }
+
+        // Calcular distancia entre dos puntos
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radio de la Tierra en km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Actualizar estadísticas
+        function updateStats() {
+            document.getElementById('totalPoints').textContent = coords.length;
+
+            let totalDistance = 0;
+            for (let i = 1; i < coords.length; i++) {
+                totalDistance += calculateDistance(
+                    coords[i-1].lat, coords[i-1].lng,
+                    coords[i].lat, coords[i].lng
+                );
+            }
+
+            document.getElementById('totalDistance').textContent =
+                totalDistance.toFixed(2) + ' km';
+        }
+
+        // Actualizar display de coordenadas
+        function updateCoordinatesDisplay() {
+            const display = document.getElementById('coordinatesDisplay');
+
+            if (coords.length === 0) {
+                display.innerHTML = '<div style="text-align: center; color: #6c757d;">Haz clic en el mapa para marcar puntos</div>';
+                return;
+            }
+
+            let html = '';
+            coords.forEach((coord, index) => {
+                html += `
+                    <div class="coordinate-item">
+                        <span class="coordinate-text">${index + 1}. ${coord.lat.toFixed(6)}, ${coord.lng.toFixed(6)}</span>
+                        <button onclick="removePoint(${index})" style="width: auto; padding: 2px 8px; font-size: 10px; margin: 0;">×</button>
+                    </div>
+                `;
+            });
+
+            display.innerHTML = html;
+        }
+
+        // Función para agregar flechas de dirección
+        function addDirectionArrows() {
+            // Limpiar flechas existentes
+            directionArrows.forEach(arrow => map.removeLayer(arrow));
+            directionArrows = [];
+
+            if (coords.length < 2 || !showArrows) return;
+
+            // Agregar flechas cada 2-3 puntos para mejor visualización
+            const arrowInterval = Math.max(1, Math.floor(coords.length / 4));
+
+            for (let i = 0; i < coords.length - 1; i += arrowInterval) {
+                const currentCoord = coords[i];
+                const nextCoord = coords[i + 1];
+
+                // Calcular ángulo correcto para la dirección del recorrido
+                // La flecha debe apuntar desde el punto actual hacia el siguiente
+                const deltaLng = nextCoord.lng - currentCoord.lng;
+                const deltaLat = nextCoord.lat - currentCoord.lat;
+                const angle = Math.atan2(deltaLng, deltaLat) * 180 / Math.PI;
+
+                // Crear icono de flecha con símbolo más claro
+                const arrowIcon = L.divIcon({
+                    html: `
+                        <div style="
+                            transform: rotate(${angle}deg);
+                            color: #e74c3c;
+                            font-size: 20px;
+                            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+                            background: white;
+                            border-radius: 50%;
+                            width: 32px;
+                            height: 32px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            border: 3px solid #e74c3c;
+                            font-weight: bold;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                        ">
+                            ➜
+                        </div>
+                    `,
+                    className: 'direction-arrow',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                // Posición en el punto actual (no en el medio)
+                const arrowLat = currentCoord.lat;
+                const arrowLng = currentCoord.lng;
+
+                const arrow = L.marker([arrowLat, arrowLng], { icon: arrowIcon })
+                    .addTo(map)
+                    .bindPopup(`
+                        <b>Dirección de la ruta</b><br>
+                        Punto ${i + 1} → Punto ${i + 2}<br>
+                        <small>Flecha indica el sentido del recorrido</small>
+                    `);
+
+                directionArrows.push(arrow);
+            }
+        }
+
+        // Función para alternar la visibilidad de las flechas
+        function toggleDirectionArrows() {
+            showArrows = !showArrows;
+            const btn = document.getElementById('toggleArrowsBtn');
+            const statusSpan = document.getElementById('arrowsStatus');
+
+            if (showArrows) {
+                btn.innerHTML = '🧭 Ocultar Flechas';
+                btn.style.background = 'linear-gradient(45deg, #28a745, #20c997)';
+                statusSpan.innerHTML = '🟢 Activas';
+                statusSpan.style.color = '#28a745';
+                showStatus('Flechas de dirección activadas', 'success');
+            } else {
+                btn.innerHTML = '🧭 Mostrar Flechas';
+                btn.style.background = 'linear-gradient(45deg, #ffc107, #e0a800)';
+                statusSpan.innerHTML = '🔴 Inactivas';
+                statusSpan.style.color = '#dc3545';
+                showStatus('Flechas de dirección ocultadas', 'success');
+            }
+
+            // Actualizar flechas
+            addDirectionArrows();
+        }
+
+// Función para actualizar la línea en el mapa
+function updatePolyline() {
+            if (polyline) {
+  polyline.setLatLngs(coords.map(c => [c.lat, c.lng]));
+}
+            // Actualizar flechas de dirección
+            addDirectionArrows();
+        }
+
+        // Evento para marcar puntos - se configura después de inicializar el mapa
+        function setupMapEvents() {
+            console.log('Configurando eventos del mapa...');
+
+map.on('click', function(e) {
+                console.log('Clic en el mapa:', e.latlng);
+  const {lat, lng} = e.latlng;
+  coords.push({lat, lng});
+
+  // Crear marcador con popup para borrar
+  const marker = L.marker([lat, lng]).addTo(map)
+                    .bindPopup(`
+                        <b>Punto ${coords.length}</b><br>
+                        Lat: ${lat.toFixed(6)}<br>
+                        Lng: ${lng.toFixed(6)}<br>
+                        <button onclick="removePoint(${coords.length-1})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Borrar</button>
+                    `);
+
+  markers.push(marker);
+  updatePolyline();
+                updateStats();
+                updateCoordinatesDisplay();
+
+                console.log('Punto agregado. Total de puntos:', coords.length);
+});
+
+            console.log('Eventos del mapa configurados correctamente');
+        }
+
+// Función para borrar un punto específico
+function removePoint(index) {
+  map.removeLayer(markers[index]);
+  markers.splice(index, 1);
+  coords.splice(index, 1);
+
+  // Actualizar índices en los popups
+  markers.forEach((m, i) => {
+                m.getPopup().setContent(`
+                    <b>Punto ${i + 1}</b><br>
+                    Lat: ${coords[i].lat.toFixed(6)}<br>
+                    Lng: ${coords[i].lng.toFixed(6)}<br>
+                    <button onclick="removePoint(${i})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Borrar</button>
+                `);
+  });
+
+  updatePolyline();
+            updateStats();
+            updateCoordinatesDisplay();
+        }
+
+        // Función para copiar coordenadas al portapapeles
+        function copyCoordinates() {
+            if (coords.length === 0) {
+                showStatus('No hay coordenadas para copiar', 'error');
+                return;
+            }
+
+            const coordsText = coords.map((coord, index) =>
+                `${index + 1}. ${coord.lat.toFixed(6)}, ${coord.lng.toFixed(6)}`
+            ).join('\n');
+
+            navigator.clipboard.writeText(coordsText).then(() => {
+                showStatus('Coordenadas copiadas al portapapeles', 'success');
+            }).catch(() => {
+                // Fallback para navegadores que no soportan clipboard API
+                const textArea = document.createElement('textarea');
+                textArea.value = coordsText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showStatus('Coordenadas copiadas al portapapeles', 'success');
+            });
+        }
+
+        // Función para exportar coordenadas como JSON
+        function exportCoordinates() {
+            if (coords.length === 0) {
+                showStatus('No hay coordenadas para exportar', 'error');
+                return;
+            }
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(coords, null, 2));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", "coordenadas_ruta.json");
+            dlAnchorElem.click();
+            showStatus('Coordenadas exportadas como JSON', 'success');
+        }
+
+        // Función para crear nueva ruta
+        async function createRoute() {
+            if (coords.length === 0) {
+                showStatus('Debes marcar al menos un punto en el mapa', 'error');
+                return;
+            }
+
+            const routeName = document.getElementById('routeName').value.trim();
+            const routeDescription = document.getElementById('routeDescription').value.trim();
+            const routeType = document.getElementById('routeType').value;
+
+            if (!routeName) {
+                showStatus('Debes ingresar un nombre para la ruta', 'error');
+                return;
+            }
+
+            const routeData = {
+                name: routeName,
+                description: routeDescription || `Ruta ${routeType} creada desde el editor`,
+                route_type: routeType,
+                coordinates: coords.map(coord => ({
+                    lat: coord.lat,
+                    lng: coord.lng
+                }))
+            };
+
+            try {
+                showStatus('Creando nueva ruta...', 'loading');
+
+                const response = await fetch(`${API_BASE_URL}/routes`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(routeData)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Error HTTP: ${response.status}`);
+                }
+
+                const result = await response.json();
+                showStatus(`Ruta "${routeName}" creada exitosamente!`, 'success');
+
+                // Limpiar formulario
+                document.getElementById('routeName').value = '';
+                document.getElementById('routeDescription').value = '';
+
+                // Opcional: redirigir al mapa principal
+                setTimeout(() => {
+                    if (confirm('¿Quieres ir al mapa principal para ver tu nueva ruta?')) {
+                        window.location.href = 'index.html';
+                    }
+                }, 2000);
+
+            } catch (error) {
+                console.error('Error creating route:', error);
+                showStatus(`Error creando ruta: ${error.message}`, 'error');
+            }
+        }
+
+        // Función para limpiar toda la ruta
+        function clearRoute() {
+            if (coords.length === 0) {
+                showStatus('No hay ruta para limpiar', 'error');
+                return;
+            }
+
+            if (confirm('¿Estás seguro de que quieres borrar toda la ruta?')) {
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+  coords = [];
+
+                // Limpiar flechas de dirección
+                directionArrows.forEach(arrow => map.removeLayer(arrow));
+                directionArrows = [];
+
+  updatePolyline();
+                updateStats();
+                updateCoordinatesDisplay();
+                showStatus('Ruta limpiada completamente', 'success');
+            }
+        }
+
+        // Inicialización
+        window.onload = function() {
+            // Pequeño retraso para asegurar que el DOM esté completamente cargado
+            setTimeout(() => {
+                initMap();
+                updateStats();
+                updateCoordinatesDisplay();
+            }, 100);
+        };
+
+        // Exportar funciones para uso desde la consola
+        window.routeEditor = {
+            coords: () => coords,
+            createRoute,
+            copyCoordinates,
+            exportCoordinates,
+            clearRoute
+        };
+</script>
+</body>
+</html>
