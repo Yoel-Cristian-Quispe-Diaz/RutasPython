@@ -1,5 +1,5 @@
-flask
-flask-cors
-psycopg2-binary
-uvicorn
-python-dotenv
+Flask==2.3.3
+psycopg2-binary==2.9.8
+gunicorn==21.2.0
+python-dotenv==1.0.0
+flask-cors==3.0.13
