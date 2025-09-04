@@ -1,67 +1,84 @@
-# API de Rutas de Transporte
 
-Una API REST completa para gestionar rutas de transporte público con coordenadas GPS.
+# API de Rutas de Transporte - Documentación
 
-## 🚀 Instalación y Configuración
+API RESTful para gestionar rutas de transporte público (autobuses, trufis, micros) con coordenadas GPS en PostgreSQL.
+
+## 📋 Tabla de Contenidos
+
+- [Instalación](#instalación)
+- [Configuración](#configuración)
+- [Endpoints](#endpoints)
+- [Ejemplos de Uso](#ejemplos-de-uso)
+- [Códigos de Error](#códigos-de-error)
+- [Estructura de Datos](#estructura-de-datos)
+
+## 🚀 Instalación
 
 ### Prerrequisitos
+
 - Python 3.7+
-- MySQL 5.7+ o MariaDB 10.2+
-- pip
+- PostgreSQL 12+
 
-### Instalación
+### Pasos de instalación
 
-1. **Clonar e instalar dependencias:**
-```bash
-pip install -r requirements.txt
+1. **Clonar o descargar los archivos del proyecto**
+
+2. **Crear entorno virtual**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Linux/Mac
+   # o
+   venv\Scripts\activate     # Windows
+   ```
+
+3. **Instalar dependencias**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Configurar PostgreSQL**
+   ```sql
+   -- Crear la base de datos
+   CREATE DATABASE transport_routes WITH ENCODING 'UTF8';
+
+   -- Ejecutar el script SQL de creación de tablas
+   psql -U postgres -d transport_routes -f transport_routes_postgresql.sql
+   ```
+
+## ⚙️ Configuración
+
+Editar las credenciales de la base de datos en el archivo principal:
+
+```python
+DB_CONFIG = {
+    'host': 'localhost',        # Servidor de PostgreSQL
+    'database': 'transport_routes',  # Nombre de la base de datos
+    'user': 'postgres',         # Usuario de PostgreSQL
+    'password': 'tu_password',  # Contraseña
+    'port': '5432'             # Puerto (por defecto 5432)
+}
 ```
 
-2. **Configurar la base de datos:**
-```bash
-python data_loader.py
+## 🌐 Endpoints
+
+### Base URL
 ```
-
-3. **Ejecutar la API:**
-```bash
-python transport_api.py
+http://localhost:5000/api
 ```
-
-La API estará disponible en `http://localhost:5000`
-
-## 🗃️ Estructura de la Base de Datos
-
-### Tabla `routes`
-- `id`: ID único de la ruta
-- `name`: Nombre de la ruta (único)
-- `description`: Descripción de la ruta
-- `route_type`: Tipo de ruta (bus, trufi, micro)
-- `is_active`: Estado activo/inactivo
-- `created_at`: Fecha de creación
-- `updated_at`: Fecha de actualización
-
-### Tabla `route_coordinates`
-- `id`: ID único de la coordenada
-- `route_id`: ID de la ruta (FK)
-- `latitude`: Latitud
-- `longitude`: Longitud
-- `sequence_order`: Orden en la secuencia
-- `created_at`: Fecha de creación
-
-## 📊 Endpoints de la API
 
 ### 1. Obtener todas las rutas
 ```http
-GET /api/routes
+GET /routes
 ```
 
-**Respuesta:**
+**Respuesta exitosa:**
 ```json
 {
   "success": true,
   "data": [
     {
       "id": 1,
-      "name": "ruta_1_ida",
+      "name": "ruta_2_ida",
       "description": "Ruta 1 dirección ida",
       "route_type": "bus",
       "is_active": true,
@@ -70,254 +87,311 @@ GET /api/routes
           "lat": -21.993376,
           "lng": -63.683664,
           "order": 1
-        },
-        {
-          "lat": -21.992982,
-          "lng": -63.686455,
-          "order": 2
         }
       ]
     }
   ],
-  "total": 8
+  "total": 1
 }
 ```
 
 ### 2. Obtener ruta por nombre
 ```http
-GET /api/routes/{route_name}
+GET /routes/{route_name}
 ```
+
+**Parámetros:**
+- `route_name` (string): Nombre exacto de la ruta
 
 **Ejemplo:**
 ```http
-GET /api/routes/ruta_1_ida
+GET /routes/ruta_2_ida
 ```
 
 ### 3. Obtener ruta por ID
 ```http
-GET /api/routes/{route_id}
+GET /routes/{route_id}
 ```
+
+**Parámetros:**
+- `route_id` (integer): ID único de la ruta
 
 **Ejemplo:**
 ```http
-GET /api/routes/1
+GET /routes/1
 ```
 
 ### 4. Crear nueva ruta
 ```http
-POST /api/routes
-Content-Type: application/json
+POST /routes
 ```
 
-**Body:**
+**Body (JSON):**
 ```json
 {
-  "name": "ruta_3_ida",
-  "description": "Nueva ruta 3 ida",
+  "name": "nueva_ruta",
+  "description": "Descripción de la ruta",
   "route_type": "bus",
+  "is_active": true,
   "coordinates": [
     {
-      "lat": -21.990000,
-      "lng": -63.680000
+      "lat": -21.993376,
+      "lng": -63.683664
     },
     {
-      "lat": -21.995000,
-      "lng": -63.685000
+      "lat": -21.994376,
+      "lng": -63.684664
     }
   ]
 }
 ```
 
-### 5. Obtener rutas por tipo
+**Campos obligatorios:**
+- `name` (string): Nombre único de la ruta
+- `coordinates` (array): Array de objetos con lat/lng
+
+**Campos opcionales:**
+- `description` (string): Descripción de la ruta
+- `route_type` (enum): "bus", "trufi", "micro" (default: "bus")
+- `is_active` (boolean): Estado activo/inactivo (default: true)
+
+### 5. Actualizar ruta
 ```http
-GET /api/routes/type/{route_type}
+PUT /routes/{route_id}
 ```
 
-**Tipos disponibles:** `bus`, `trufi`, `micro`
+**Body (JSON):**
+```json
+{
+  "name": "nombre_actualizado",
+  "description": "Nueva descripción",
+  "route_type": "trufi",
+  "is_active": false,
+  "coordinates": [
+    {
+      "lat": -21.993376,
+      "lng": -63.683664
+    }
+  ]
+}
+```
+
+**Nota:** Todos los campos son opcionales. Solo se actualizarán los campos enviados.
+
+### 6. Eliminar ruta (Soft Delete)
+```http
+DELETE /routes/{route_id}
+```
+
+**Nota:** La ruta no se elimina físicamente, solo se marca como `is_active = false`.
+
+### 7. Obtener rutas por tipo
+```http
+GET /routes/type/{route_type}
+```
+
+**Parámetros:**
+- `route_type` (enum): "bus", "trufi" o "micro"
 
 **Ejemplo:**
 ```http
-GET /api/routes/type/trufi
+GET /routes/type/bus
 ```
 
-### 6. Buscar rutas
+### 8. Buscar rutas
 ```http
-GET /api/routes/search?q={search_term}
+GET /routes/search?q={search_term}
 ```
+
+**Parámetros de consulta:**
+- `q` (string): Término de búsqueda (busca en nombre y descripción)
 
 **Ejemplo:**
 ```http
-GET /api/routes/search?q=trufi
+GET /routes/search?q=trufi
 ```
 
-### 7. Health Check
+**Nota:** La búsqueda es case-insensitive.
+
+### 9. Estado de la API
 ```http
-GET /api/health
+GET /health
 ```
 
-## 🔧 Configuración de la Base de Datos
-
-Edita la configuración en `transport_api.py` y `data_loader.py`:
-
-```python
-DB_CONFIG = {
-    'host': 'localhost',
-    'database': 'transport_routes',
-    'user': 'tu_usuario',
-    'password': 'tu_contraseña',
-    'charset': 'utf8mb4'
+**Respuesta:**
+```json
+{
+  "status": "OK",
+  "database": "Connected",
+  "db_version": "PostgreSQL 14.9...",
+  "timestamp": "2025-09-04T10:30:00"
 }
 ```
 
 ## 📝 Ejemplos de Uso
 
-### Python
-```python
-import requests
+### Crear una nueva ruta de trufi
 
-# Obtener todas las rutas
-response = requests.get('http://localhost:5000/api/routes')
-routes = response.json()
-
-# Obtener ruta específica
-response = requests.get('http://localhost:5000/api/routes/ruta_1_ida')
-route = response.json()
-
-# Crear nueva ruta
-new_route = {
-    "name": "ruta_nueva",
-    "description": "Nueva ruta de ejemplo",
-    "route_type": "bus",
-    "coordinates": [
-        {"lat": -21.990000, "lng": -63.680000},
-        {"lat": -21.995000, "lng": -63.685000}
-    ]
-}
-
-response = requests.post(
-    'http://localhost:5000/api/routes',
-    json=new_route
-)
-```
-
-### JavaScript/Fetch
-```javascript
-// Obtener todas las rutas
-fetch('http://localhost:5000/api/routes')
-  .then(response => response.json())
-  .then(data => console.log(data));
-
-// Crear nueva ruta
-const newRoute = {
-  name: "ruta_nueva",
-  description: "Nueva ruta de ejemplo",
-  route_type: "bus",
-  coordinates: [
-    {lat: -21.990000, lng: -63.680000},
-    {lat: -21.995000, lng: -63.685000}
-  ]
-};
-
-fetch('http://localhost:5000/api/routes', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify(newRoute)
-});
-```
-
-### cURL
 ```bash
-# Obtener todas las rutas
-curl http://localhost:5000/api/routes
-
-# Obtener ruta específica
-curl http://localhost:5000/api/routes/ruta_1_ida
-
-# Crear nueva ruta
 curl -X POST http://localhost:5000/api/routes \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "ruta_nueva",
-    "description": "Nueva ruta de ejemplo",
-    "route_type": "bus",
+    "name": "trufi_linea_a",
+    "description": "Trufi Línea A - Centro a Pampa",
+    "route_type": "trufi",
     "coordinates": [
-      {"lat": -21.990000, "lng": -63.680000},
-      {"lat": -21.995000, "lng": -63.685000}
+      {"lat": -21.993376, "lng": -63.683664},
+      {"lat": -21.994376, "lng": -63.684664},
+      {"lat": -21.995376, "lng": -63.685664}
     ]
   }'
 ```
 
-## 🛠️ Funciones Utilitarias
+### Buscar rutas que contengan "centro"
 
-El archivo `data_loader.py` incluye funciones útiles:
-
-### Agregar coordenadas a una ruta existente
-```python
-from data_loader import add_coordinates_to_route
-
-coordinates = [
-    {'lat': -21.990000, 'lng': -63.680000},
-    {'lat': -21.995000, 'lng': -63.685000}
-]
-
-add_coordinates_to_route('trufi_A', coordinates)
+```bash
+curl "http://localhost:5000/api/routes/search?q=centro"
 ```
 
-### Exportar todas las rutas a JSON
-```python
-from data_loader import export_routes_to_json
+### Obtener todas las rutas de tipo "bus"
 
-export_routes_to_json()  # Crea archivo 'routes_export.json'
+```bash
+curl "http://localhost:5000/api/routes/type/bus"
 ```
 
-## 📋 Rutas Predefinidas
+### Actualizar solo la descripción de una ruta
 
-La API viene con estas rutas configuradas:
+```bash
+curl -X PUT http://localhost:5000/api/routes/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Nueva descripción actualizada"
+  }'
+```
 
-1. **ruta_1_ida** - Ruta 1 dirección ida (47 coordenadas)
-2. **ruta_1_vuelta** - Ruta 1 dirección vuelta
-3. **ruta_2_ida** - Ruta 2 dirección ida
-4. **ruta_2_vuelta** - Ruta 2 dirección vuelta
-5. **trufi_A** - Línea de trufi A
-6. **trufi_B** - Línea de trufi B
-7. **trufi_C** - Línea de trufi C
-8. **trufi_D** - Línea de trufi D
+## ⚠️ Códigos de Error
 
-## 🚦 Códigos de Estado HTTP
+| Código | Descripción |
+|--------|-------------|
+| 200 | Éxito |
+| 201 | Creado exitosamente |
+| 400 | Solicitud incorrecta (datos faltantes o inválidos) |
+| 404 | Recurso no encontrado |
+| 409 | Conflicto (ruta ya existe o error de integridad) |
+| 500 | Error interno del servidor |
 
-- `200` - Éxito
-- `201` - Creado exitosamente
-- `400` - Solicitud incorrecta
-- `404` - No encontrado
-- `409` - Conflicto (ruta ya existe)
-- `500` - Error interno del servidor
-
-## 🔐 CORS
-
-La API tiene CORS habilitado para permitir solicitudes desde cualquier origen. En producción, considera configurar orígenes específicos.
-
-## 📊 Formato de Respuesta
-
-Todas las respuestas siguen este formato:
+### Formato de respuesta de error
 
 ```json
 {
-  "success": true/false,
-  "data": {...},
-  "total": number,
-  "error": "mensaje de error (si aplica)"
+  "error": "Descripción del error"
 }
 ```
 
-## 🚀 Despliegue en Producción
+## 📊 Estructura de Datos
 
-Para producción, considera:
+### Objeto Ruta
 
-1. Usar un servidor WSGI como Gunicorn
-2. Configurar HTTPS
-3. Usar variables de entorno para configuración
-4. Implementar autenticación/autorización
-5. Configurar logging adecuado
-6. Usar un proxy reverso como Nginx
+```json
+{
+  "id": 1,
+  "name": "nombre_ruta",
+  "description": "Descripción opcional",
+  "route_type": "bus|trufi|micro",
+  "is_active": true,
+  "coordinates": [
+    {
+      "lat": -21.993376,
+      "lng": -63.683664,
+      "order": 1
+    }
+  ]
+}
+```
+
+### Tipos de Ruta
+
+- `bus`: Autobús urbano
+- `trufi`: Trufi (minibús compartido)
+- `micro`: Micro (autobús pequeño)
+
+### Coordenadas
+
+Las coordenadas se almacenan como puntos GPS en formato decimal:
+- `lat` (latitude): Coordenada de latitud (-90 a 90)
+- `lng` (longitude): Coordenada de longitud (-180 a 180)
+- `order`: Orden secuencial en la ruta (automático)
+
+## 🔧 Estructura de la Base de Datos
+
+### Tabla: routes
+- `id` (SERIAL PRIMARY KEY)
+- `name` (VARCHAR(100) UNIQUE NOT NULL)
+- `description` (TEXT)
+- `route_type` (ENUM: bus, trufi, micro)
+- `is_active` (BOOLEAN DEFAULT TRUE)
+- `created_at` (TIMESTAMP)
+- `updated_at` (TIMESTAMP)
+
+### Tabla: route_coordinates
+- `id` (SERIAL PRIMARY KEY)
+- `route_id` (INTEGER FOREIGN KEY)
+- `latitude` (DECIMAL(10,6))
+- `longitude` (DECIMAL(10,6))
+- `sequence_order` (INTEGER)
+- `created_at` (TIMESTAMP)
+
+### Vista: route_details
+Vista optimizada que combina rutas con sus coordenadas en formato JSON.
+
+## 🚀 Ejecución
+
+Para iniciar la API:
+
+```bash
+python app.py
+```
+
+La API estará disponible en: `http://localhost:5000`
+
+Para modo de producción, considera usar un servidor WSGI como Gunicorn:
+
+```bash
+pip install gunicorn
+gunicorn -w 4 -b 0.0.0.0:5000 app:app
+```
+
+## 🛠️ Desarrollo
+
+### Variables de entorno recomendadas
+
+```bash
+export FLASK_ENV=development  # Para desarrollo
+export FLASK_ENV=production   # Para producción
+export DATABASE_URL=postgresql://user:pass@host:port/dbname
+```
+
+### Testing
+
+Para probar todos los endpoints:
+
+```bash
+# Verificar estado
+curl http://localhost:5000/api/health
+
+# Obtener todas las rutas
+curl http://localhost:5000/api/routes
+
+# Crear ruta de prueba
+curl -X POST http://localhost:5000/api/routes \
+  -H "Content-Type: application/json" \
+  -d '{"name":"test_route","coordinates":[{"lat":-21.5,"lng":-63.2}]}'
+```
+
+## 📞 Soporte
+
+Para reportar problemas o sugerencias, revisa:
+- Los logs de la aplicación
+- La conectividad a PostgreSQL
+- Los permisos de la base de datos
+- La sintaxis de las consultas JSON
