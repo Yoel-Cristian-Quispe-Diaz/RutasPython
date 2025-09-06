@@ -62,7 +62,8 @@
 
         select,
         input,
-        button {
+        button,
+        textarea {
             width: 100%;
             padding: 10px;
             border: 2px solid #e1e1e1;
@@ -72,7 +73,8 @@
         }
 
         select:focus,
-        input:focus {
+        input:focus,
+        textarea:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -111,6 +113,7 @@
             border-bottom: 1px solid #f0f0f0;
             cursor: pointer;
             transition: all 0.3s ease;
+            position: relative;
         }
 
         .route-item:hover {
@@ -135,6 +138,31 @@
 
         .route-item.active .route-info {
             color: rgba(255, 255, 255, 0.8);
+        }
+
+        .route-actions {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: flex;
+            gap: 5px;
+        }
+
+        .route-action-btn {
+            width: auto;
+            padding: 2px 6px;
+            font-size: 10px;
+            margin: 0;
+            border-radius: 4px;
+        }
+
+        .btn-edit {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-delete {
+            background: #dc3545;
         }
 
         .status {
@@ -216,17 +244,52 @@
             margin-right: 10px;
         }
 
-        .direction-arrow {
-            z-index: 1000 !important;
+        .edit-form {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 2px solid #dee2e6;
         }
 
-        .direction-arrow div {
-            transition: all 0.3s ease;
+        .edit-form h3 {
+            margin-bottom: 15px;
+            color: #333;
         }
 
-        .direction-arrow:hover div {
-            transform: scale(1.2) !important;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        .coordinates-editor {
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        .coordinate-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .coordinate-item:last-child {
+            border-bottom: none;
+        }
+
+        .coordinate-text {
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .btn-update {
+            background: linear-gradient(45deg, #28a745, #20c997);
+        }
+
+        .btn-cancel {
+            background: linear-gradient(45deg, #6c757d, #5a6268);
         }
 
         @keyframes spin {
@@ -270,10 +333,6 @@
                     <span>Rutas activas:</span>
                     <span id="activeRoutes">-</span>
                 </div>
-                <div class="stat-item">
-                    <span>Flechas de dirección:</span>
-                    <span id="arrowsStatus" style="color: #17a2b8; font-weight: bold;">🟢 Activas</span>
-                </div>
             </div>
 
             <div class="controls">
@@ -303,14 +362,39 @@
                     style="background: linear-gradient(45deg, #28a745, #20c997);">
                     🗺️ Editor de Rutas
                 </button>
-
-                <button onclick="toggleDirectionArrows()" id="toggleArrowsBtn"
-                    style="background: linear-gradient(45deg, #17a2b8, #138496);">
-                    🧭 Ocultar Flechas
-                </button>
             </div>
 
             <div id="status"></div>
+
+            <!-- Formulario de edición -->
+            <div id="editForm" class="edit-form" style="display: none;">
+                <h3>Editar Ruta</h3>
+                <div class="control-group">
+                    <label for="editName">Nombre:</label>
+                    <input type="text" id="editName">
+                </div>
+                <div class="control-group">
+                    <label for="editDescription">Descripción:</label>
+                    <textarea id="editDescription" rows="2"></textarea>
+                </div>
+                <div class="control-group">
+                    <label for="editType">Tipo:</label>
+                    <select id="editType">
+                        <option value="bus">Bus</option>
+                        <option value="trufi">Trufi</option>
+                        <option value="micro">Micro</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Coordenadas:</label>
+                    <div id="coordinatesEditor" class="coordinates-editor">
+                        <!-- Coordenadas se cargarán aquí -->
+                    </div>
+                    <small>Haz clic en el mapa para agregar puntos</small>
+                </div>
+                <button class="btn-update" onclick="updateRoute()">Actualizar Ruta</button>
+                <button class="btn-cancel" onclick="cancelEdit()">Cancelar</button>
+            </div>
 
             <div class="route-list" id="routeList">
                 <!-- Las rutas se cargarán aquí -->
@@ -331,13 +415,16 @@
         let map;
         let routes = [];
         let currentLayer = null;
-        let directionArrows = []; // Array para almacenar las flechas de dirección
-        let showArrows = true; // Controlar visibilidad de las flechas
         let routeColors = {
             'bus': '#007bff',
             'trufi': '#28a745',
             'micro': '#ffc107'
         };
+
+        // Variables para edición
+        let editingRoute = null;
+        let editMarkers = [];
+        let editPolyline = null;
 
         // Inicializar mapa
         function initMap() {
@@ -347,6 +434,13 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
+
+            // Evento para agregar puntos durante la edición
+            map.on('click', function(e) {
+                if (editingRoute) {
+                    addEditPoint(e.latlng);
+                }
+            });
         }
 
         // Mostrar status
@@ -426,76 +520,14 @@
                     <div class="route-info">
                         ${route.description || 'Sin descripción'} • ${coordinatesCount} puntos
                     </div>
+                    <div class="route-actions">
+                        <button class="route-action-btn btn-edit" onclick="event.stopPropagation(); startEditRoute(${route.id})">✏️</button>
+                        <button class="route-action-btn btn-delete" onclick="event.stopPropagation(); deleteRoute(${route.id})">🗑️</button>
+                    </div>
                 `;
 
                 routeList.appendChild(routeItem);
             });
-        }
-
-        // Función para agregar flechas de dirección
-        function addDirectionArrows(coordinates, routeName, routeType) {
-            // Limpiar flechas existentes
-            directionArrows.forEach(arrow => map.removeLayer(arrow));
-            directionArrows = [];
-
-            if (coordinates.length < 2 || !showArrows) return;
-
-            // Agregar flechas cada 2-3 puntos para mejor visualización
-            const arrowInterval = Math.max(1, Math.floor(coordinates.length / 4));
-
-            for (let i = 0; i < coordinates.length - 1; i += arrowInterval) {
-                const currentCoord = coordinates[i];
-                const nextCoord = coordinates[i + 1];
-
-                // Calcular ángulo correcto para la dirección del recorrido
-                // La flecha debe apuntar desde el punto actual hacia el siguiente
-                const deltaLng = nextCoord.lng - currentCoord.lng;
-                const deltaLat = nextCoord.lat - currentCoord.lat;
-                const angle = Math.atan2(deltaLng, deltaLat) * 180 / Math.PI;
-
-                // Crear icono de flecha con símbolo más claro
-                const arrowIcon = L.divIcon({
-                    html: `
-                        <div style="
-                            transform: rotate(${angle}deg);
-                            color: #e74c3c;
-                            font-size: 20px;
-                            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-                            background: white;
-                            border-radius: 50%;
-                            width: 32px;
-                            height: 32px;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            border: 3px solid #e74c3c;
-                            font-weight: bold;
-                            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                        ">
-                            ➜
-                        </div>
-                    `,
-                    className: 'direction-arrow',
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 16]
-                });
-
-                // Posición en el punto actual (no en el medio)
-                const arrowLat = currentCoord.lat;
-                const arrowLng = currentCoord.lng;
-
-                const arrow = L.marker([arrowLat, arrowLng], { icon: arrowIcon })
-                    .addTo(map)
-                    .bindPopup(`
-                        <b>Dirección de la ruta</b><br>
-                        <strong>${routeName}</strong><br>
-                        Punto ${i + 1} → Punto ${i + 2}<br>
-                        Tipo: ${routeType}<br>
-                        <small>Flecha indica el sentido del recorrido</small>
-                    `);
-
-                directionArrows.push(arrow);
-            }
         }
 
         // Seleccionar y mostrar ruta en el mapa
@@ -508,14 +540,10 @@
             // Marcar como activo
             document.querySelectorAll('.route-item')[index].classList.add('active');
 
-            // Limpiar capa anterior y flechas
+            // Limpiar capa anterior
             if (currentLayer) {
                 map.removeLayer(currentLayer);
             }
-
-            // Limpiar flechas existentes
-            directionArrows.forEach(arrow => map.removeLayer(arrow));
-            directionArrows = [];
 
             // Verificar si hay coordenadas
             if (!route.coordinates || route.coordinates.length === 0) {
@@ -532,9 +560,6 @@
                 weight: 4,
                 opacity: 0.8
             }).addTo(map);
-
-            // Agregar flechas de dirección
-            addDirectionArrows(route.coordinates, route.name, route.route_type);
 
             // Agregar marcadores de inicio y fin
             if (latLngs.length > 0) {
@@ -567,16 +592,237 @@
             showStatus(`Ruta "${route.name}" mostrada en el mapa`, 'success');
         }
 
+        // Iniciar edición de ruta
+        function startEditRoute(routeId) {
+            const route = routes.find(r => r.id === routeId);
+            if (!route) return;
+
+            editingRoute = route;
+
+            // Llenar formulario
+            document.getElementById('editName').value = route.name;
+            document.getElementById('editDescription').value = route.description || '';
+            document.getElementById('editType').value = route.route_type;
+
+            // Mostrar formulario
+            document.getElementById('editForm').style.display = 'block';
+
+            // Limpiar mapa y mostrar puntos editables
+            clearMap();
+            setupEditableRoute(route);
+
+            showStatus('Modo edición activado - Haz clic en el mapa para agregar puntos', 'loading');
+        }
+
+        // Configurar ruta editable
+        function setupEditableRoute(route) {
+            editMarkers = [];
+
+            // Crear polyline editable
+            const coords = route.coordinates || [];
+            const latLngs = coords.map(c => [c.lat, c.lng]);
+
+            if (latLngs.length > 0) {
+                editPolyline = L.polyline(latLngs, {
+                    color: '#e74c3c',
+                    weight: 4,
+                    opacity: 0.8
+                }).addTo(map);
+
+                map.fitBounds(editPolyline.getBounds(), { padding: [20, 20] });
+            } else {
+                editPolyline = L.polyline([], {
+                    color: '#e74c3c',
+                    weight: 4,
+                    opacity: 0.8
+                }).addTo(map);
+            }
+
+            // Crear marcadores editables
+            coords.forEach((coord, index) => {
+                addEditMarker(coord.lat, coord.lng, index);
+            });
+
+            updateCoordinatesEditor();
+        }
+
+        // Agregar marcador editable
+        function addEditMarker(lat, lng, index) {
+            const marker = L.marker([lat, lng], {
+                draggable: true
+            }).addTo(map);
+
+            marker.bindPopup(`
+                <b>Punto ${index + 1}</b><br>
+                Lat: ${lat.toFixed(6)}<br>
+                Lng: ${lng.toFixed(6)}<br>
+                <button onclick="removeEditPoint(${index})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Eliminar</button>
+            `);
+
+            marker.on('dragend', function(e) {
+                updatePolylineFromMarkers();
+                updateCoordinatesEditor();
+            });
+
+            editMarkers[index] = marker;
+        }
+
+        // Agregar punto en edición
+        function addEditPoint(latlng) {
+            const index = editMarkers.length;
+            addEditMarker(latlng.lat, latlng.lng, index);
+            updatePolylineFromMarkers();
+            updateCoordinatesEditor();
+        }
+
+        // Eliminar punto en edición
+        function removeEditPoint(index) {
+            if (editMarkers[index]) {
+                map.removeLayer(editMarkers[index]);
+                editMarkers.splice(index, 1);
+
+                // Actualizar índices de los marcadores restantes
+                editMarkers.forEach((marker, i) => {
+                    const pos = marker.getLatLng();
+                    marker.getPopup().setContent(`
+                        <b>Punto ${i + 1}</b><br>
+                        Lat: ${pos.lat.toFixed(6)}<br>
+                        Lng: ${pos.lng.toFixed(6)}<br>
+                        <button onclick="removeEditPoint(${i})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Eliminar</button>
+                    `);
+                });
+
+                updatePolylineFromMarkers();
+                updateCoordinatesEditor();
+            }
+        }
+
+        // Actualizar polyline desde marcadores
+        function updatePolylineFromMarkers() {
+            const latLngs = editMarkers.map(marker => marker.getLatLng());
+            editPolyline.setLatLngs(latLngs);
+        }
+
+        // Actualizar editor de coordenadas
+        function updateCoordinatesEditor() {
+            const editor = document.getElementById('coordinatesEditor');
+
+            if (editMarkers.length === 0) {
+                editor.innerHTML = '<div style="text-align: center; color: #6c757d;">Sin coordenadas</div>';
+                return;
+            }
+
+            let html = '';
+            editMarkers.forEach((marker, index) => {
+                const pos = marker.getLatLng();
+                html += `
+                    <div class="coordinate-item">
+                        <span class="coordinate-text">${index + 1}. ${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}</span>
+                        <button onclick="removeEditPoint(${index})" style="width: auto; padding: 2px 8px; font-size: 10px; margin: 0;">×</button>
+                    </div>
+                `;
+            });
+
+            editor.innerHTML = html;
+        }
+
+        // Actualizar ruta
+        async function updateRoute() {
+            if (!editingRoute) return;
+
+            try {
+                showStatus('Actualizando ruta...', 'loading');
+
+                const coordinates = editMarkers.map(marker => {
+                    const pos = marker.getLatLng();
+                    return {
+                        lat: pos.lat,
+                        lng: pos.lng
+                    };
+                });
+
+                const updateData = {
+                    name: document.getElementById('editName').value.trim(),
+                    description: document.getElementById('editDescription').value.trim(),
+                    route_type: document.getElementById('editType').value,
+                    coordinates: coordinates
+                };
+
+                const response = await fetch(`${API_BASE_URL}/routes/${editingRoute.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updateData)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Error HTTP: ${response.status}`);
+                }
+
+                showStatus('Ruta actualizada exitosamente', 'success');
+                cancelEdit();
+                await loadRoutes();
+
+            } catch (error) {
+                console.error('Error updating route:', error);
+                showStatus(`Error actualizando ruta: ${error.message}`, 'error');
+            }
+        }
+
+        // Cancelar edición
+        function cancelEdit() {
+            editingRoute = null;
+
+            // Ocultar formulario
+            document.getElementById('editForm').style.display = 'none';
+
+            // Limpiar marcadores y polyline de edición
+            editMarkers.forEach(marker => map.removeLayer(marker));
+            editMarkers = [];
+
+            if (editPolyline) {
+                map.removeLayer(editPolyline);
+                editPolyline = null;
+            }
+
+            showStatus('Edición cancelada', 'success');
+        }
+
+        // Eliminar ruta
+        async function deleteRoute(routeId) {
+            if (!confirm('¿Estás seguro de que quieres eliminar esta ruta?')) {
+                return;
+            }
+
+            try {
+                showStatus('Eliminando ruta...', 'loading');
+
+                const response = await fetch(`${API_BASE_URL}/routes/${routeId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                showStatus('Ruta eliminada exitosamente', 'success');
+                await loadRoutes();
+                clearMap();
+
+            } catch (error) {
+                console.error('Error deleting route:', error);
+                showStatus(`Error eliminando ruta: ${error.message}`, 'error');
+            }
+        }
+
         // Limpiar mapa
         function clearMap() {
             if (currentLayer) {
                 map.removeLayer(currentLayer);
                 currentLayer = null;
             }
-
-            // Limpiar flechas de dirección
-            directionArrows.forEach(arrow => map.removeLayer(arrow));
-            directionArrows = [];
 
             // Remover todos los marcadores
             map.eachLayer((layer) => {
@@ -678,39 +924,6 @@
             displayRoutes();
             updateStats();
             showStatus('Mostrando datos de ejemplo (API desconectada)', 'error');
-        }
-
-        // Función para alternar la visibilidad de las flechas
-        function toggleDirectionArrows() {
-            showArrows = !showArrows;
-            const btn = document.getElementById('toggleArrowsBtn');
-            const statusSpan = document.getElementById('arrowsStatus');
-
-            if (showArrows) {
-                btn.innerHTML = '🧭 Ocultar Flechas';
-                btn.style.background = 'linear-gradient(45deg, #17a2b8, #138496)';
-                statusSpan.innerHTML = '🟢 Activas';
-                statusSpan.style.color = '#17a2b8';
-                showStatus('Flechas de dirección activadas', 'success');
-            } else {
-                btn.innerHTML = '🧭 Mostrar Flechas';
-                btn.style.background = 'linear-gradient(45deg, #ffc107, #e0a800)';
-                statusSpan.innerHTML = '🔴 Inactivas';
-                statusSpan.style.color = '#dc3545';
-                showStatus('Flechas de dirección ocultadas', 'success');
-            }
-
-            // Actualizar flechas si hay una ruta activa
-            if (currentLayer) {
-                // Encontrar la ruta activa
-                const activeRoute = routes.find((_, index) =>
-                    document.querySelectorAll('.route-item')[index]?.classList.contains('active')
-                );
-
-                if (activeRoute && activeRoute.coordinates) {
-                    addDirectionArrows(activeRoute.coordinates, activeRoute.name, activeRoute.route_type);
-                }
-            }
         }
 
         // Exportar funciones para uso desde la consola

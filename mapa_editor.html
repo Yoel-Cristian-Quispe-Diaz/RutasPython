@@ -101,15 +101,6 @@
     background: linear-gradient(45deg, #dc3545, #c82333);
   }
 
-  .btn-warning {
-    background: linear-gradient(45deg, #ffc107, #e0a800);
-    color: #212529;
-  }
-
-  .btn-info {
-    background: linear-gradient(45deg, #17a2b8, #138496);
-  }
-
   .coordinates-display {
     background: #f8f9fa;
     border: 2px solid #e1e1e1;
@@ -203,19 +194,6 @@
     position: relative;
   }
 
-  .direction-arrow {
-    z-index: 1000 !important;
-  }
-
-  .direction-arrow div {
-    transition: all 0.3s ease;
-  }
-
-  .direction-arrow:hover div {
-    transform: scale(1.2) !important;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-  }
-
   .loading-spinner {
     display: inline-block;
     width: 20px;
@@ -266,10 +244,6 @@
                     <span>Distancia total:</span>
                     <span id="totalDistance">0 km</span>
                 </div>
-                <div class="stat-item">
-                    <span>Flechas de dirección:</span>
-                    <span id="arrowsStatus" style="color: #28a745; font-weight: bold;">🟢 Activas</span>
-                </div>
             </div>
 
             <div class="controls">
@@ -292,24 +266,12 @@
                     </select>
                 </div>
 
-                <button class="btn-info" onclick="copyCoordinates()">
-                    📋 Copiar Coordenadas
-                </button>
-
                 <button class="btn-success" onclick="createRoute()">
                     💾 Crear Nueva Ruta
                 </button>
 
-                <button class="btn-warning" onclick="exportCoordinates()">
-                    📥 Exportar JSON
-                </button>
-
                 <button class="btn-danger" onclick="clearRoute()">
                     🗑️ Limpiar Ruta
-                </button>
-
-                <button class="btn-warning" onclick="toggleDirectionArrows()" id="toggleArrowsBtn">
-                    🧭 Ocultar Flechas
                 </button>
             </div>
 
@@ -323,12 +285,12 @@
         </div>
 
         <div class="main-content">
-<div id="map"></div>
+            <div id="map"></div>
         </div>
-</div>
+    </div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
         // Configuración
         const API_BASE_URL = 'https://rutaspython.onrender.com//api';
 
@@ -337,8 +299,6 @@
         let coords = [];
         let markers = [];
         let polyline = null;
-        let directionArrows = []; // Array para almacenar las flechas de dirección
-        let showArrows = true; // Controlar visibilidad de las flechas
 
         // Inicializar mapa
         function initMap() {
@@ -348,9 +308,9 @@
             map = L.map('map').setView([-21.9987, -63.6789], 12);
             console.log('Mapa creado:', map);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap contributors'
-}).addTo(map);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
 
             // Inicializar polyline
             polyline = L.polyline([], {color: 'red', weight: 4}).addTo(map);
@@ -423,114 +383,24 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             display.innerHTML = html;
         }
 
-        // Función para agregar flechas de dirección
-        function addDirectionArrows() {
-            // Limpiar flechas existentes
-            directionArrows.forEach(arrow => map.removeLayer(arrow));
-            directionArrows = [];
-
-            if (coords.length < 2 || !showArrows) return;
-
-            // Agregar flechas cada 2-3 puntos para mejor visualización
-            const arrowInterval = Math.max(1, Math.floor(coords.length / 4));
-
-            for (let i = 0; i < coords.length - 1; i += arrowInterval) {
-                const currentCoord = coords[i];
-                const nextCoord = coords[i + 1];
-
-                // Calcular ángulo correcto para la dirección del recorrido
-                // La flecha debe apuntar desde el punto actual hacia el siguiente
-                const deltaLng = nextCoord.lng - currentCoord.lng;
-                const deltaLat = nextCoord.lat - currentCoord.lat;
-                const angle = Math.atan2(deltaLng, deltaLat) * 180 / Math.PI;
-
-                // Crear icono de flecha con símbolo más claro
-                const arrowIcon = L.divIcon({
-                    html: `
-                        <div style="
-                            transform: rotate(${angle}deg);
-                            color: #e74c3c;
-                            font-size: 20px;
-                            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-                            background: white;
-                            border-radius: 50%;
-                            width: 32px;
-                            height: 32px;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            border: 3px solid #e74c3c;
-                            font-weight: bold;
-                            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                        ">
-                            ➜
-                        </div>
-                    `,
-                    className: 'direction-arrow',
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 16]
-                });
-
-                // Posición en el punto actual (no en el medio)
-                const arrowLat = currentCoord.lat;
-                const arrowLng = currentCoord.lng;
-
-                const arrow = L.marker([arrowLat, arrowLng], { icon: arrowIcon })
-                    .addTo(map)
-                    .bindPopup(`
-                        <b>Dirección de la ruta</b><br>
-                        Punto ${i + 1} → Punto ${i + 2}<br>
-                        <small>Flecha indica el sentido del recorrido</small>
-                    `);
-
-                directionArrows.push(arrow);
-            }
-        }
-
-        // Función para alternar la visibilidad de las flechas
-        function toggleDirectionArrows() {
-            showArrows = !showArrows;
-            const btn = document.getElementById('toggleArrowsBtn');
-            const statusSpan = document.getElementById('arrowsStatus');
-
-            if (showArrows) {
-                btn.innerHTML = '🧭 Ocultar Flechas';
-                btn.style.background = 'linear-gradient(45deg, #28a745, #20c997)';
-                statusSpan.innerHTML = '🟢 Activas';
-                statusSpan.style.color = '#28a745';
-                showStatus('Flechas de dirección activadas', 'success');
-            } else {
-                btn.innerHTML = '🧭 Mostrar Flechas';
-                btn.style.background = 'linear-gradient(45deg, #ffc107, #e0a800)';
-                statusSpan.innerHTML = '🔴 Inactivas';
-                statusSpan.style.color = '#dc3545';
-                showStatus('Flechas de dirección ocultadas', 'success');
-            }
-
-            // Actualizar flechas
-            addDirectionArrows();
-        }
-
-// Función para actualizar la línea en el mapa
-function updatePolyline() {
+        // Función para actualizar la línea en el mapa
+        function updatePolyline() {
             if (polyline) {
-  polyline.setLatLngs(coords.map(c => [c.lat, c.lng]));
-}
-            // Actualizar flechas de dirección
-            addDirectionArrows();
+                polyline.setLatLngs(coords.map(c => [c.lat, c.lng]));
+            }
         }
 
         // Evento para marcar puntos - se configura después de inicializar el mapa
         function setupMapEvents() {
             console.log('Configurando eventos del mapa...');
 
-map.on('click', function(e) {
+            map.on('click', function(e) {
                 console.log('Clic en el mapa:', e.latlng);
-  const {lat, lng} = e.latlng;
-  coords.push({lat, lng});
+                const {lat, lng} = e.latlng;
+                coords.push({lat, lng});
 
-  // Crear marcador con popup para borrar
-  const marker = L.marker([lat, lng]).addTo(map)
+                // Crear marcador con popup para borrar
+                const marker = L.marker([lat, lng]).addTo(map)
                     .bindPopup(`
                         <b>Punto ${coords.length}</b><br>
                         Lat: ${lat.toFixed(6)}<br>
@@ -538,76 +408,36 @@ map.on('click', function(e) {
                         <button onclick="removePoint(${coords.length-1})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Borrar</button>
                     `);
 
-  markers.push(marker);
-  updatePolyline();
+                markers.push(marker);
+                updatePolyline();
                 updateStats();
                 updateCoordinatesDisplay();
 
                 console.log('Punto agregado. Total de puntos:', coords.length);
-});
+            });
 
             console.log('Eventos del mapa configurados correctamente');
         }
 
-// Función para borrar un punto específico
-function removePoint(index) {
-  map.removeLayer(markers[index]);
-  markers.splice(index, 1);
-  coords.splice(index, 1);
+        // Función para borrar un punto específico
+        function removePoint(index) {
+            map.removeLayer(markers[index]);
+            markers.splice(index, 1);
+            coords.splice(index, 1);
 
-  // Actualizar índices en los popups
-  markers.forEach((m, i) => {
+            // Actualizar índices en los popups
+            markers.forEach((m, i) => {
                 m.getPopup().setContent(`
                     <b>Punto ${i + 1}</b><br>
                     Lat: ${coords[i].lat.toFixed(6)}<br>
                     Lng: ${coords[i].lng.toFixed(6)}<br>
                     <button onclick="removePoint(${i})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Borrar</button>
                 `);
-  });
+            });
 
-  updatePolyline();
+            updatePolyline();
             updateStats();
             updateCoordinatesDisplay();
-        }
-
-        // Función para copiar coordenadas al portapapeles
-        function copyCoordinates() {
-            if (coords.length === 0) {
-                showStatus('No hay coordenadas para copiar', 'error');
-                return;
-            }
-
-            const coordsText = coords.map((coord, index) =>
-                `${index + 1}. ${coord.lat.toFixed(6)}, ${coord.lng.toFixed(6)}`
-            ).join('\n');
-
-            navigator.clipboard.writeText(coordsText).then(() => {
-                showStatus('Coordenadas copiadas al portapapeles', 'success');
-            }).catch(() => {
-                // Fallback para navegadores que no soportan clipboard API
-                const textArea = document.createElement('textarea');
-                textArea.value = coordsText;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                showStatus('Coordenadas copiadas al portapapeles', 'success');
-            });
-        }
-
-        // Función para exportar coordenadas como JSON
-        function exportCoordinates() {
-            if (coords.length === 0) {
-                showStatus('No hay coordenadas para exportar', 'error');
-                return;
-            }
-
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(coords, null, 2));
-            const dlAnchorElem = document.createElement('a');
-            dlAnchorElem.setAttribute("href", dataStr);
-            dlAnchorElem.setAttribute("download", "coordenadas_ruta.json");
-            dlAnchorElem.click();
-            showStatus('Coordenadas exportadas como JSON', 'success');
         }
 
         // Función para crear nueva ruta
@@ -680,15 +510,11 @@ function removePoint(index) {
             }
 
             if (confirm('¿Estás seguro de que quieres borrar toda la ruta?')) {
-  markers.forEach(m => map.removeLayer(m));
-  markers = [];
-  coords = [];
+                markers.forEach(m => map.removeLayer(m));
+                markers = [];
+                coords = [];
 
-                // Limpiar flechas de dirección
-                directionArrows.forEach(arrow => map.removeLayer(arrow));
-                directionArrows = [];
-
-  updatePolyline();
+                updatePolyline();
                 updateStats();
                 updateCoordinatesDisplay();
                 showStatus('Ruta limpiada completamente', 'success');
@@ -709,10 +535,8 @@ function removePoint(index) {
         window.routeEditor = {
             coords: () => coords,
             createRoute,
-            copyCoordinates,
-            exportCoordinates,
             clearRoute
         };
-</script>
+    </script>
 </body>
 </html>
